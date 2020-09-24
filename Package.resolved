@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "KalmanFilter",
+        "repositoryURL": "https://github.com/ShreshthSaxena/KalmanFilter.git",
+        "state": {
+          "branch": null,
+          "revision": "f4769de4acc069a707ad5d65bf9da1c415e3d0c2",
+          "version": "1.0.0"
+        }
+      },
+      {
+        "package": "Upsurge",
+        "repositoryURL": "https://github.com/ShreshthSaxena/Upsurge.git",
+        "state": {
+          "branch": null,
+          "revision": "a410d7ff379e859d1afe2d2820b0d63dd4bcaeda",
+          "version": "1.0.0"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

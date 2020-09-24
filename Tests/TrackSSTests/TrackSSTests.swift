@@ -6,7 +6,12 @@ final class TrackSSTests: XCTestCase {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
-        XCTAssertEqual(TrackSS().text, "Hello, World!")
+//        XCTAssertEqual(TrackSS().text, "Hello, World!")
+        let T = TrackSS()
+        for f in frames{
+            print("/////new frame")
+            T.update(dets: f)
+        }
     }
 
     static var allTests = [
