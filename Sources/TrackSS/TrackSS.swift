@@ -76,13 +76,13 @@ public func associate_detections_to_trackers(detections: Array<Array<Int>>,track
 }
 
 public class Tracker{
-    var trackers:Array<ball>
-    var min_hits: Int?
-    var max_age: Int?
-    var frame_count:Int?
-    var more_than_one_active = false
-    var patience = 0
-    var creationTime: Date?
+    public var trackers:Array<ball>
+    public var min_hits: Int?
+    public var max_age: Int?
+    public var frame_count:Int?
+    public var more_than_one_active = false
+    public var patience = 0
+    public var creationTime: Date?
     var x = KMatrix(grid: [0,0,0,0], rows: 4, columns: 1)  //[x,y]
     var P = KMatrix(grid: [1000, 0,0,0, 0, 1000,0,0,0,0,1000,0,0,0,0,1000], rows: 4, columns: 4)
     let B = KMatrix(identityOfSize: 4)
@@ -195,14 +195,14 @@ public enum State {
 var lastId = 1
 
 public class ball{
-    var state:State?
-    var id:Int
-    var bbox:Array<Int>
-    var center:(Int,Int)
-    var hits:Int
-    var time_since_update:Int
+    public var state:State?
+    public var id:Int
+    public var bbox:Array<Int>
+    public var center:(Int,Int)
+    public var hits:Int
+    public var time_since_update:Int
     
-    init(bbox: Array<Int>,state:State = .inactive){
+    public init(bbox: Array<Int>,state:State = .inactive){
         self.state = state
         self.id = lastId; lastId+=1
         self.bbox = bbox
@@ -219,7 +219,7 @@ public class ball{
 //        print(self.state!)
 //    }
 
-    func update(bbox: Array<Int>){
+    public func update(bbox: Array<Int>){
         self.time_since_update = 0
         self.hits += 1
         self.bbox = bbox
