@@ -75,7 +75,7 @@ func associate_detections_to_trackers(detections: Array<Array<Int>>,trackers: Ar
     return (matches, unmatched_detections, unmatched_trackers)
 }
 
-class TrackSS{
+class Tracker{
     var trackers:Array<ball>
     var min_hits: Int?
     var max_age: Int?

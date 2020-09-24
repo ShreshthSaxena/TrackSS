@@ -7,7 +7,7 @@ final class TrackSSTests: XCTestCase {
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
 //        XCTAssertEqual(TrackSS().text, "Hello, World!")
-        let T = TrackSS()
+        let T = Tracker()
         for f in frames{
             print("/////new frame")
             T.update(dets: f)
