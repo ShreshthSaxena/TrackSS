@@ -8,7 +8,7 @@
 import Foundation
 import KalmanFilter
 
-func iou(bb_test:Array<Int>,bb_gt:Array<Int>) -> Double{
+public func iou(bb_test:Array<Int>,bb_gt:Array<Int>) -> Double{
     let xx1 = max(bb_test[0], bb_gt[0])
     let yy1 = max(bb_test[1], bb_gt[1])
     let xx2 = min(bb_test[2], bb_gt[2])
@@ -21,7 +21,7 @@ func iou(bb_test:Array<Int>,bb_gt:Array<Int>) -> Double{
     return(o)
 }
 
-func associate_detections_to_trackers(detections: Array<Array<Int>>,trackers: Array<Array<Int>>,iou_threshold:Double = 0.3) -> ([(Int,Int)],[Int],[Int]){
+public func associate_detections_to_trackers(detections: Array<Array<Int>>,trackers: Array<Array<Int>>,iou_threshold:Double = 0.3) -> ([(Int,Int)],[Int],[Int]){
 //    if trackers.count == 0{
 //        print("early return")
 //    }
@@ -75,7 +75,7 @@ func associate_detections_to_trackers(detections: Array<Array<Int>>,trackers: Ar
     return (matches, unmatched_detections, unmatched_trackers)
 }
 
-class Tracker{
+public class Tracker{
     var trackers:Array<ball>
     var min_hits: Int?
     var max_age: Int?
@@ -94,7 +94,7 @@ class Tracker{
     
     lazy var kalmanFilter = KalmanFilter(stateEstimatePrior: x, errorCovariancePrior: P)
     
-    init(max_age: Int=3 ,min_hits: Int=3){
+    public init(max_age: Int=3 ,min_hits: Int=3){
         self.trackers = [] //depends on where you invoke SORT
 //          self.min_hits = min_hits
 //          self.max_age = max_age
@@ -102,7 +102,7 @@ class Tracker{
         self.creationTime = Date()
     }
     
-    func update(dets: Array<Array<Int>>){
+    public func update(dets: Array<Array<Int>>){
         self.frame_count! += 1
         print("dets ",dets)
         if self.frame_count == 1 || (trackers.count == 0 && dets.count == 0){
@@ -189,12 +189,12 @@ class Tracker{
 }
 
 
-enum State {
+public enum State {
     case active,inactive,lost,tracked
 }
 var lastId = 1
 
-class ball{
+public class ball{
     var state:State?
     var id:Int
     var bbox:Array<Int>
@@ -211,7 +211,7 @@ class ball{
         self.hits = 0
     }
     
-    func describe(){
+    public func describe(){
         print("id:",self.id,"box:", self.bbox, "center:", self.center, "state:", self.state as Any, "time_since_update:",self.time_since_update, "hits:",self.hits)
     }
     
