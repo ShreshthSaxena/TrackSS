@@ -1,4 +1,8 @@
 // swift-tools-version:5.3
+// swift-tools-version:3.0.2
+// swift-tools-version:3.1
+// swift-tools-version:4.0
+// swift-tools-version:5.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription

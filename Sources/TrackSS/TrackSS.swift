@@ -21,11 +21,104 @@ public func iou(bb_test:Array<Int>,bb_gt:Array<Int>) -> Double{
     return(o)
 }
 
+/**
+Takes a bounding box in the form [x1,y1,x2,y2] and returns z in the form
+    [x,y,s,r] where x,y is the centre of the box and s is the scale/area and r is
+    the aspect ratio
+ */
+public func convert_bbox_to_z(bbox:Array<Int>)->Array<Double>{
+
+  let w = bbox[2] - bbox[0]
+  let h = bbox[3] - bbox[1]
+  let x = bbox[0] + w/2
+  let y = bbox[1] + h/2
+  let s = w * h //scale = area
+  let r = w / h
+    return [x, y, s, r].map({ Double($0) })
+}
+
+/**
+ Takes a bounding box in the centre form [x,y,s,r] and returns it in the form
+     [x1,y1,x2,y2] where x1,y1 is the top left and x2,y2 is the bottom right
+ */
+public func convert_x_to_bbox(x:Array<Double>)->Array<Int>{
+    let w = sqrt(Double(x[2] * x[3]))
+    let h = x[2] / w
+    return [x[0]-w/2,x[1]-h/2,x[0]+w/2,x[1]+h/2].map({ Int($0) })
+}
+
+public class KalmanTracker{
+    public var id:Int
+//    public var bbox:Array<Int>
+//    public var center:(Int,Int)
+    public var hits:Int
+    public var hit_streak:Int
+    public var age:Int
+    public var time_since_update:Int
+    public var history:Array<Array<Int>>
+    var lastId = 0
+    public var x:KMatrix   //state vector
+    public var P:KMatrix  //initial state uncertainity
+    public let B:KMatrix   //control matrix
+    public let u:KMatrix   //control vector
+    public let F:KMatrix   //next state fn
+    public let H:KMatrix   //measurement fn
+    public var R:KMatrix   //mesurement uncertainity
+    public let Q:KMatrix  //process uncertainity
+    public lazy var kalmanFilter = KalmanFilter(stateEstimatePrior: x, errorCovariancePrior: P)
+    
+    public init(bbox: Array<Int>){
+        self.x = KMatrix(grid: convert_bbox_to_z(bbox: bbox)+[0,0,0], rows: 7, columns: 1)
+        self.P = KMatrix(grid: [10,0,0,0,0,0,0, 0,10,0,0,0,0,0, 0,0,10,0,0,0,0, 0,0,0,10,0,0,0, 0,0,0,0,10000,0,0, 0,0,0,0,0,10000,0, 0,0,0,0,0,0,10000], rows: 7, columns: 7)
+        self.B = KMatrix(identityOfSize: 7)
+        self.u = KMatrix(vector: [0, 0, 0, 0, 0, 0, 0])
+        self.F = KMatrix(grid: [1,0,0,0,1,0,0, 0,1,0,0,0,1,0, 0,0,1,0,0,0,1, 0,0,0,1,0,0,0, 0,0,0,0,1,0,0, 0,0,0,0,0,1,0, 0,0,0,0,0,0,1], rows: 7, columns: 7)
+        self.H = KMatrix(grid: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], rows: 4, columns: 7)
+        self.R = KMatrix(grid: [1,0,0,0, 0,1,0,0, 0,0,10,0, 0,0,0,10], rows: 4, columns: 4)
+        self.Q = KMatrix(grid: [1,0,0,0,0,0,0, 0,1,0,0,0,0,0, 0,0,1,0,0,0,0, 0,0,0,1,0,0,0, 0,0,0,0,0.01,0,0, 0,0,0,0,0,0.01,0, 0,0,0,0,0,0,0.0001], rows: 7, columns: 7)
+        self.id = lastId; lastId+=1
+        self.time_since_update = 0
+        self.hits = 0
+        self.hit_streak = 0
+        self.age = 0
+        self.history = []
+        self.kalmanFilter = KalmanFilter(stateEstimatePrior: self.x, errorCovariancePrior: self.P)
+    }
+    
+    public func describe(){
+        print("id:",self.id, "time_since_update:",self.time_since_update, "hits:",self.hits)
+    }
+
+    public func update(bbox: Array<Int>){
+        self.time_since_update = 0
+        self.history = []
+        self.hits += 1
+        self.hit_streak += 1
+        let z = KMatrix(grid: convert_bbox_to_z(bbox: bbox)+[0,0,0], rows: 7, columns: 1)
+        self.kalmanFilter = self.kalmanFilter.update(measurement: z, observationModel: H, covarienceOfObservationNoise: R)
+    }
+    
+    public func predict()->Array<Int>{
+        self.kalmanFilter = self.kalmanFilter.predict(stateTransitionModel: self.F, controlInputModel: self.B, controlVector: self.u, covarianceOfProcessNoise: self.Q)
+        self.age+=1
+        if self.time_since_update > 0{ self.hit_streak+=1 }
+        self.time_since_update+=1
+        self.history.append(convert_x_to_bbox(x: self.kalmanFilter.stateEstimatePrior.grid))
+        return self.history.last!
+    }
+    
+    public func get_state()->Array<Int>{
+        return convert_x_to_bbox(x: self.kalmanFilter.stateEstimatePrior.grid)
+    }
+    
+}
+
+
 public func associate_detections_to_trackers(detections: Array<Array<Int>>,trackers: Array<Array<Int>>,iou_threshold:Double = 0.3) -> ([(Int,Int)],[Int],[Int]){
-//    if trackers.count == 0{
-//        print("early return")
-//    }
-//    var iou_matrix:[[Double]] = []
+    if trackers.count == 0{
+        return ([],Array(0..<detections.count),[])
+    }
+    
     var iou_matrix:[[Double]] = Array(repeating: Array(repeating: 0, count: trackers.count), count: detections.count)
     
     for (d,det) in detections.enumerated(){
@@ -75,154 +168,69 @@ public func associate_detections_to_trackers(detections: Array<Array<Int>>,track
     return (matches, unmatched_detections, unmatched_trackers)
 }
 
-public class Tracker{
-    public var trackers:Array<ball>
-    public var min_hits: Int?
-    public var max_age: Int?
-    public var frame_count:Int?
+public class TrackerSS{
+    public var trackers:Array<KalmanTracker>
+    public var min_hits: Int
+    public var max_age: Int
+    public var frame_count:Int
     public var more_than_one_active = false
     public var patience = 0
-    public var creationTime: Date?
-    var x = KMatrix(grid: [0,0,0,0], rows: 4, columns: 1)  //[x,y]
-    var P = KMatrix(grid: [1000, 0,0,0, 0, 1000,0,0,0,0,1000,0,0,0,0,1000], rows: 4, columns: 4)
-    let B = KMatrix(identityOfSize: 4)
-    let u = KMatrix(vector: [0, 0, 0, 0])
-    let F = KMatrix(grid: [1,0,0.1,0,0,1,0,0.1,0,0,1,0,0,0,0,1], rows: 4, columns: 4) //next state fn
-    let H = KMatrix(grid: [1, 0, 0, 0,0,1,0,0], rows: 2, columns: 4)   //measurement fn
-    var R = KMatrix(grid: [1,0,0,1], rows: 2, columns: 2)     //mesurement uncertainity
-    let Q = KMatrix(grid: [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], rows: 4, columns: 4)
+    public var creationTime: Date
+    public var iou_threshold:Double
     
-    lazy var kalmanFilter = KalmanFilter(stateEstimatePrior: x, errorCovariancePrior: P)
-    
-    public init(max_age: Int=3 ,min_hits: Int=3){
+    public init(max_age: Int=3 ,min_hits: Int=3, iou_threshold:Double = 0.3){
         self.trackers = [] //depends on where you invoke SORT
-//          self.min_hits = min_hits
-//          self.max_age = max_age
+        self.min_hits = min_hits
+        self.max_age = max_age
         self.frame_count = 0
+        self.iou_threshold = iou_threshold
         self.creationTime = Date()
     }
     
-    public func update(dets: Array<Array<Int>>){
-        self.frame_count! += 1
-        print("dets ",dets)
-        if self.frame_count == 1 || (trackers.count == 0 && dets.count == 0){
-            for det in dets{
-                self.trackers.append(ball(bbox: det))
-            }
-            print("trackers ",trackers)
-            return
-        }
-        
-        let trks = trackers.map({$0.bbox})
-        print("trackers no",trackers.count)
-        print("det no",dets.count)
-        let (matched,unmatched_dets,unmatched_trks) = associate_detections_to_trackers(detections: dets, trackers: trks)
-        
-//        for m in matched{
-////            if !unmatched_trks.contains(t){
-//            trackers[m.1].update(bbox: dets[m.0]) //update bbox
-////            trackers[m.1].describe()
-////            }
-//        }
-        for m in 0..<trackers.count{
-            if let i = matched.first(where: {$0.1 == m}){
-                trackers[m].update(bbox: dets[i.0])
-            }
-            else{
-                trackers[m].time_since_update += 1
-            }
-            trackers[m].describe()
-        }
-        
-        
-        switch unmatched_dets.count{
-        case 0:
-            patience = 0
-            if trackers.last?.state == .active{   //contains(where: { $0.state == .active }){
-                // active tracker at last always
-                if trackers.last!.time_since_update > 2{
-                    trackers.last?.state = .lost
-                }
-                else if trackers.last?.time_since_update == 0{
-                    trackers.last?.state = .tracked
-                }
-            }
-            
-            //delete Kalman Object
-            //check for stale if matches.count > 0
-        case 1:
-            patience = 0
-            if !trackers.contains(where: { $0.state == .active }){ //unmatched_trks.count == 0
-                print("start kalman")
-                let new_ball = ball(bbox: dets[unmatched_dets], state: .active)
-                self.trackers.append(new_ball)
-                kalmanFilter = KalmanFilter(stateEstimatePrior: x, errorCovariancePrior: P)
-                let z = KMatrix(grid: [Double(new_ball.center.0), Double(new_ball.center.1)], rows: 2, columns: 1)
-                kalmanFilter = kalmanFilter.update(measurement: z, observationModel: H, covarienceOfObservationNoise: R)
-                kalmanFilter = kalmanFilter.predict(stateTransitionModel: F, controlInputModel: B, controlVector: u, covarianceOfProcessNoise: Q)
-            }
-            else{ //if trackers.last!.state == .active{
-                //predict kalman
-                //update kalman
-                let center = ball(bbox: dets[unmatched_dets[0]]).center
-                let z = KMatrix(grid: [Double(center.0), Double(center.1)], rows: 2, columns: 1)
-                kalmanFilter = kalmanFilter.update(measurement: z, observationModel: H, covarienceOfObservationNoise: R)
-                kalmanFilter = kalmanFilter.predict(stateTransitionModel: F, controlInputModel: B, controlVector: u, covarianceOfProcessNoise: Q)
-//                let midx = Int(kalmanFilter.stateEstimatePrior.grid[0])
-//                let midy = Int(kalmanFilter.stateEstimatePrior.grid[1])
-                print("Kpred",kalmanFilter.stateEstimatePrior.grid)
-                trackers.last!.update(bbox:dets[unmatched_dets[0]]) //[midx-10,midy-10,midx+10,midy+10]) //might need correction
-            }
-//            else{
-//                print("more than one unmatched tracker")
+    public func update(dets: Array<Array<Int>>)->Array<Array<Int>>{
+        var ret:Array<Array<Int>> = []
+        self.frame_count += 1
+//        print("dets ",dets)
+//        if self.frame_count == 1 || (trackers.count == 0 && dets.count == 0){
+//            for det in dets{
+//                self.trackers.append(KalmanTracker(bbox: det))
 //            }
-        default:
-            patience += 1
-            print("ending session in \(5-patience)")
-            if patience>5{
-                more_than_one_active = true //end or pause session
+////            print("trackers ",trackers)
+//            return []
+//        }
+        
+        let trks = trackers.map({$0.predict()})
+
+        let (matched,unmatched_dets,_) = associate_detections_to_trackers(detections: dets, trackers: trks)
+        
+        for m in matched{
+            trackers[m.1].update(bbox: dets[m.0]) //update bbox
+        }
+        
+        for i in unmatched_dets{
+            let trk = KalmanTracker(bbox: dets[i])
+            self.trackers.append(trk)
+        }
+        var i = self.trackers.count
+        for trk in self.trackers.reversed(){
+            let d = trk.get_state()
+            if trk.time_since_update < 1 && (trk.hit_streak >= self.min_hits || self.frame_count <= self.min_hits){
+                ret.append(d+[trk.id+1])
+            }
+            i-=1
+            if trk.time_since_update>self.max_age{
+                self.trackers.remove(at: i)
             }
         }
+        
+        if ret.count > 0{
+            return ret
+        }
+        return []
         
     }
     
 }
 
 
-public enum State {
-    case active,inactive,lost,tracked
-}
-var lastId = 1
 
-public class ball{
-    public var state:State?
-    public var id:Int
-    public var bbox:Array<Int>
-    public var center:(Int,Int)
-    public var hits:Int
-    public var time_since_update:Int
-    
-    public init(bbox: Array<Int>,state:State = .inactive){
-        self.state = state
-        self.id = lastId; lastId+=1
-        self.bbox = bbox
-        self.center = (bbox[0]+(bbox[2]-bbox[0])/2 , bbox[1]+(bbox[3]-bbox[1])/2)
-        self.time_since_update = 0
-        self.hits = 0
-    }
-    
-    public func describe(){
-        print("id:",self.id,"box:", self.bbox, "center:", self.center, "state:", self.state as Any, "time_since_update:",self.time_since_update, "hits:",self.hits)
-    }
-    
-//    func transition(){
-//        print(self.state!)
-//    }
-
-    public func update(bbox: Array<Int>){
-        self.time_since_update = 0
-        self.hits += 1
-        self.bbox = bbox
-        self.center = (bbox[0]+(bbox[2]-bbox[0])/2 , bbox[1]+(bbox[3]-bbox[1])/2)
-    }
-}
