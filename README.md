@@ -39,5 +39,6 @@ To add package in your Xcode project do:
 ## To do
 
 - make corrections/improvements as needed
+- Error handling
 - add support for Carthage and Cocoapods
 - Benchmark on MOT datasets
