@@ -1,7 +1,8 @@
 # TrackSS
 
-[SORT](http://arxiv.org/abs/1602.00763) based Object Tracker in Swift <br>
+[SORT](http://arxiv.org/abs/1602.00763) based Object Tracker for real-time object tracking in Swift <br>
 for author's Python implementation check : https://github.com/abewley/sort
+
 
 ## Introduction
 
