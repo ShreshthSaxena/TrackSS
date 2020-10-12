@@ -26,15 +26,15 @@ Takes a bounding box in the form [x1,y1,x2,y2] and returns z in the form
     [x,y,s,r] where x,y is the centre of the box and s is the scale/area and r is
     the aspect ratio
  */
-public func convert_bbox_to_z(bbox:Array<Int>)->Array<Double>{
-
+public func convert_bbox_to_z(bbox_int:Array<Int>)->Array<Double>{
+  let bbox = bbox_int.map({ Double($0) })
   let w = bbox[2] - bbox[0]
   let h = bbox[3] - bbox[1]
   let x = bbox[0] + w/2
   let y = bbox[1] + h/2
   let s = w * h //scale = area
   let r = w / h
-    return [x, y, s, r].map({ Double($0) })
+    return [x, y, s, r]
 }
 
 /**
@@ -47,6 +47,8 @@ public func convert_x_to_bbox(x:Array<Double>)->Array<Int>{
     return [x[0]-w/2,x[1]-h/2,x[0]+w/2,x[1]+h/2].map({ Int($0) })
 }
 
+var lastId = 0
+
 public class KalmanTracker{
     public var id:Int
 //    public var bbox:Array<Int>
@@ -56,7 +58,6 @@ public class KalmanTracker{
     public var age:Int
     public var time_since_update:Int
     public var history:Array<Array<Int>>
-    var lastId = 0
     public var x:KMatrix   //state vector
     public var P:KMatrix  //initial state uncertainity
     public let B:KMatrix   //control matrix
@@ -68,12 +69,12 @@ public class KalmanTracker{
     public lazy var kalmanFilter = KalmanFilter(stateEstimatePrior: x, errorCovariancePrior: P)
     
     public init(bbox: Array<Int>){
-        self.x = KMatrix(grid: convert_bbox_to_z(bbox: bbox)+[0,0,0], rows: 7, columns: 1)
+        self.x = KMatrix(grid: convert_bbox_to_z(bbox_int: bbox)+[0,0,0], rows: 7, columns: 1)
         self.P = KMatrix(grid: [10,0,0,0,0,0,0, 0,10,0,0,0,0,0, 0,0,10,0,0,0,0, 0,0,0,10,0,0,0, 0,0,0,0,10000,0,0, 0,0,0,0,0,10000,0, 0,0,0,0,0,0,10000], rows: 7, columns: 7)
         self.B = KMatrix(identityOfSize: 7)
         self.u = KMatrix(vector: [0, 0, 0, 0, 0, 0, 0])
         self.F = KMatrix(grid: [1,0,0,0,1,0,0, 0,1,0,0,0,1,0, 0,0,1,0,0,0,1, 0,0,0,1,0,0,0, 0,0,0,0,1,0,0, 0,0,0,0,0,1,0, 0,0,0,0,0,0,1], rows: 7, columns: 7)
-        self.H = KMatrix(grid: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], rows: 4, columns: 7)
+        self.H = KMatrix(grid: [1,0,0,0,0,0,0, 0,1,0,0,0,0,0, 0,0,1,0,0,0,0, 0,0,0,1,0,0,0], rows: 4, columns: 7)
         self.R = KMatrix(grid: [1,0,0,0, 0,1,0,0, 0,0,10,0, 0,0,0,10], rows: 4, columns: 4)
         self.Q = KMatrix(grid: [1,0,0,0,0,0,0, 0,1,0,0,0,0,0, 0,0,1,0,0,0,0, 0,0,0,1,0,0,0, 0,0,0,0,0.01,0,0, 0,0,0,0,0,0.01,0, 0,0,0,0,0,0,0.0001], rows: 7, columns: 7)
         self.id = lastId; lastId+=1
@@ -94,7 +95,7 @@ public class KalmanTracker{
         self.history = []
         self.hits += 1
         self.hit_streak += 1
-        let z = KMatrix(grid: convert_bbox_to_z(bbox: bbox)+[0,0,0], rows: 7, columns: 1)
+        let z = KMatrix(grid: convert_bbox_to_z(bbox_int: bbox), rows: 4, columns: 1)
         self.kalmanFilter = self.kalmanFilter.update(measurement: z, observationModel: H, covarienceOfObservationNoise: R)
     }
     
@@ -164,7 +165,7 @@ public func associate_detections_to_trackers(detections: Array<Array<Int>>,track
             matches.append(m)
         }
     }
-    print(matches)
+//    print(matches)
     return (matches, unmatched_detections, unmatched_trackers)
 }
 
@@ -178,13 +179,14 @@ public class TrackerSS{
     public var creationTime: Date
     public var iou_threshold:Double
     
-    public init(max_age: Int=3 ,min_hits: Int=3, iou_threshold:Double = 0.3){
+    public init(max_age: Int=1 ,min_hits: Int=3, iou_threshold:Double = 0.3){
         self.trackers = [] //depends on where you invoke SORT
         self.min_hits = min_hits
         self.max_age = max_age
         self.frame_count = 0
         self.iou_threshold = iou_threshold
         self.creationTime = Date()
+        lastId = 0
     }
     
     public func update(dets: Array<Array<Int>>)->Array<Array<Int>>{
@@ -199,21 +201,21 @@ public class TrackerSS{
 //            return []
 //        }
         
-        let trks = trackers.map({$0.predict()})
-
+        let trks = self.trackers.map({$0.predict()})
+//        print("trks",trks)
         let (matched,unmatched_dets,_) = associate_detections_to_trackers(detections: dets, trackers: trks)
+        print("matches",matched)
         
         for m in matched{
-            trackers[m.1].update(bbox: dets[m.0]) //update bbox
+            self.trackers[m.1].update(bbox: dets[m.0]) //update bbox
         }
         
-        for i in unmatched_dets{
-            let trk = KalmanTracker(bbox: dets[i])
-            self.trackers.append(trk)
-        }
+        for i in unmatched_dets{ self.trackers.append(KalmanTracker(bbox: dets[i])) }
+        
         var i = self.trackers.count
         for trk in self.trackers.reversed(){
             let d = trk.get_state()
+//            print(i,trk.time_since_update)
             if trk.time_since_update < 1 && (trk.hit_streak >= self.min_hits || self.frame_count <= self.min_hits){
                 ret.append(d+[trk.id+1])
             }
@@ -222,6 +224,7 @@ public class TrackerSS{
                 self.trackers.remove(at: i)
             }
         }
+        print("trackers", self.trackers.count)
         
         if ret.count > 0{
             return ret

@@ -4,13 +4,12 @@ import XCTest
 final class TrackSSTests: XCTestCase {
     func testExample() {
         // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
-//        XCTAssertEqual(TrackSS().text, "Hello, World!")
         let T = TrackerSS()
+        var i = 0
         for f in frames{
-            print("/////new frame")
-            print("iteration output",T.update(dets: f))
+            print("/////new frame", f.count, i); i+=1
+            let ops = T.update(dets: f)
+            for op in ops{ print(op)}
         }
     }
 
