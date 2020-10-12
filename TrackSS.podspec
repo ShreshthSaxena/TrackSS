@@ -6,7 +6,7 @@ spec.description  = <<-DESC
 open to any improvements/corrections
 DESC
 spec.license      = { :type => "MIT", :file => "LICENSE" }
-spec.author             = { "author" => "shreshth.mcs17.du@gmail.com" }
+spec.author             = { "author" => "shreshth.saxena@outlook.com" }
 spec.platforms = { :ios => "13.0", :osx => "10.15", :watchos => "6.0" }
 spec.swift_version = "5.3"
 spec.source       = { :git => "https://github.com/ShreshthSaxena/TrackSS.git", :tag => "#{1.0.0}" }
