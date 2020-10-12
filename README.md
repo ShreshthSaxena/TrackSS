@@ -9,7 +9,7 @@ SORT is a barebones implementation of a visual multiple object tracking framewor
 
 SORT was initially described in [this paper](http://arxiv.org/abs/1602.00763). At the time of the initial publication, SORT was ranked the best *open source* multiple object tracker on the [MOT benchmark](https://motchallenge.net/results/2D_MOT_2015/).
 
-Dependancy Credits: 
+Dependency Credits: 
 - [Kalman Filter](https://github.com/wearereasonablepeople/KalmanFilter)
 - [Hungarian method Solver](https://github.com/Jasagredo/Hume)
 
