@@ -1,6 +1,6 @@
 # TrackSS
 
-SORT based Object Tracker in Swift
+[SORT](http://arxiv.org/abs/1602.00763) based Object Tracker in Swift <br>
 for author's Python implementation check : https://github.com/abewley/sort
 
 ## Introduction
@@ -26,12 +26,9 @@ To add package in your Xcode project do:
 > let T = TrackerSS()
 
 - Update tracker with detections on each timestep/frame:
->for f in frames{
->
->    let res = T.update(dets: f)
->
->    print(res)
->
+>for f in frames{<br>
+>    let res = T.update(dets: f)<br>
+>    print(res)<br>
 >}
 
 - Input parameter **dets: Array<Array\<Int>>** is an array of detections in the format [[x1,y1,x2,y2],[x1,y1,x2,y2],...]
