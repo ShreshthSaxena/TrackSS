@@ -8,6 +8,9 @@
 import Foundation
 import KalmanFilter
 
+/**
+ Computes IUO between two bboxes in the form [l,t,w,h]
+ */
 public func iou(bb_test:Array<Int>,bb_gt:Array<Int>) -> Double{
     let xx1 = max(bb_test[0], bb_gt[0])
     let yy1 = max(bb_test[1], bb_gt[1])
@@ -49,10 +52,11 @@ public func convert_x_to_bbox(x:Array<Double>)->Array<Int>{
 
 var lastId = 0
 
+/**
+ This class represents the internal state of individual tracked objects observed as bbox.
+ */
 public class KalmanTracker{
     public var id:Int
-//    public var bbox:Array<Int>
-//    public var center:(Int,Int)
     public var hits:Int
     public var hit_streak:Int
     public var age:Int
@@ -68,6 +72,9 @@ public class KalmanTracker{
     public let Q:KMatrix  //process uncertainity
     public lazy var kalmanFilter = KalmanFilter(stateEstimatePrior: x, errorCovariancePrior: P)
     
+    /**
+     Initialises a tracker using initial bounding box.
+     */
     public init(bbox: Array<Int>){
         self.x = KMatrix(grid: convert_bbox_to_z(bbox_int: bbox)+[0,0,0], rows: 7, columns: 1)
         self.P = KMatrix(grid: [10,0,0,0,0,0,0, 0,10,0,0,0,0,0, 0,0,10,0,0,0,0, 0,0,0,10,0,0,0, 0,0,0,0,10000,0,0, 0,0,0,0,0,10000,0, 0,0,0,0,0,0,10000], rows: 7, columns: 7)
@@ -87,9 +94,12 @@ public class KalmanTracker{
     }
     
     public func describe(){
-        print("id:",self.id, "time_since_update:",self.time_since_update, "hits:",self.hits)
+        print("id:",self.id, "bbox:",self.get_state(), "time_since_update:",self.time_since_update, "hits:",self.hits, "hit_streak:", self.hit_streak, "age:", self.age)
     }
-
+    
+    /**
+     Updates the state vector with observed bbox.
+     */
     public func update(bbox: Array<Int>){
         self.time_since_update = 0
         self.history = []
@@ -99,6 +109,9 @@ public class KalmanTracker{
         self.kalmanFilter = self.kalmanFilter.update(measurement: z, observationModel: H, covarienceOfObservationNoise: R)
     }
     
+    /**
+     Advances the state vector and returns the predicted bounding box estimate.
+     */
     public func predict()->Array<Int>{
         self.kalmanFilter = self.kalmanFilter.predict(stateTransitionModel: self.F, controlInputModel: self.B, controlVector: self.u, covarianceOfProcessNoise: self.Q)
         self.age+=1
@@ -114,7 +127,10 @@ public class KalmanTracker{
     
 }
 
-
+/**
+ Assigns detections to tracked object (both represented as bounding boxes)
+ Returns 3 lists of matches, unmatched_detections and unmatched_trackers
+ */
 public func associate_detections_to_trackers(detections: Array<Array<Int>>,trackers: Array<Array<Int>>,iou_threshold:Double = 0.3) -> ([(Int,Int)],[Int],[Int]){
     if trackers.count == 0{
         return ([],Array(0..<detections.count),[])
@@ -127,25 +143,12 @@ public func associate_detections_to_trackers(detections: Array<Array<Int>>,track
             iou_matrix[d][t] = Double(iou(bb_test: det,bb_gt: trk))
         }
     }
-//    matched_indices = linear_assignment(-iou_matrix)
     let h = HunSolver(matrix: iou_matrix, maxim: true)
     guard let matched_indices = h?.solve() else{
         return ([],[0],[])
     }
     var unmatched_detections:[Int] = []
-    
-//    for d in 0..<detections.count{
-//        if !matched_indices.1.map({$0.1}).contains(d){
-//            unmatched_detections.append(d)
-//        }
-//    }
-//
     var unmatched_trackers:[Int] = []
-//    for t in 0..<trackers.count{
-//        if !matched_indices.1.map({$0.0}).contains(t){
-//            unmatched_trackers.append(t)
-//        }
-//    }
     
     print("matched_indices",matched_indices)
     //filter out matched with low IOU
@@ -165,7 +168,6 @@ public func associate_detections_to_trackers(detections: Array<Array<Int>>,track
             matches.append(m)
         }
     }
-//    print(matches)
     return (matches, unmatched_detections, unmatched_trackers)
 }
 
@@ -179,6 +181,9 @@ public class TrackerSS{
     public var creationTime: Date
     public var iou_threshold:Double
     
+    /**
+     Sets key parameters for SORT
+     */
     public init(max_age: Int=1 ,min_hits: Int=3, iou_threshold:Double = 0.3){
         self.trackers = [] //depends on where you invoke SORT
         self.min_hits = min_hits
@@ -189,20 +194,17 @@ public class TrackerSS{
         lastId = 0
     }
     
+    /**
+       dets - an Int array of detections in the format [[x1,y1,x2,y2],[x1,y1,x2,y2],...]
+       Requires: this method must be called once for each frame .
+       Returns an array, where the last column is the object ID.
+       NOTE: The number of objects returned may differ from the number of detections provided.
+     */
     public func update(dets: Array<Array<Int>>)->Array<Array<Int>>{
         var ret:Array<Array<Int>> = []
         self.frame_count += 1
-//        print("dets ",dets)
-//        if self.frame_count == 1 || (trackers.count == 0 && dets.count == 0){
-//            for det in dets{
-//                self.trackers.append(KalmanTracker(bbox: det))
-//            }
-////            print("trackers ",trackers)
-//            return []
-//        }
         
         let trks = self.trackers.map({$0.predict()})
-//        print("trks",trks)
         let (matched,unmatched_dets,_) = associate_detections_to_trackers(detections: dets, trackers: trks)
         print("matches",matched)
         
@@ -215,7 +217,6 @@ public class TrackerSS{
         var i = self.trackers.count
         for trk in self.trackers.reversed(){
             let d = trk.get_state()
-//            print(i,trk.time_since_update)
             if trk.time_since_update < 1 && (trk.hit_streak >= self.min_hits || self.frame_count <= self.min_hits){
                 ret.append(d+[trk.id+1])
             }
