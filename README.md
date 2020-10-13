@@ -40,5 +40,6 @@ To add package in your Xcode project do:
 
 - make corrections/improvements as needed
 - Error handling
-- add support for Carthage and Cocoapods
+- Add utility functions for Vision structs (CGRect/CGPoint)
+- Add support for Carthage and Cocoapods
 - Benchmark on MOT datasets
