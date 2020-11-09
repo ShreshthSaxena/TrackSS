@@ -11,7 +11,7 @@ import KalmanFilter
 /**
  Computes IUO between two bboxes in the form [l,t,w,h]
  */
-public func iou(bb_test:Array<Int>,bb_gt:Array<Int>) -> Double{
+public func iou(bb_test:Array<Double>,bb_gt:Array<Double>) -> Double{
     let xx1 = max(bb_test[0], bb_gt[0])
     let yy1 = max(bb_test[1], bb_gt[1])
     let xx2 = min(bb_test[2], bb_gt[2])
@@ -29,7 +29,7 @@ Takes a bounding box in the form [x1,y1,x2,y2] and returns z in the form
     [x,y,s,r] where x,y is the centre of the box and s is the scale/area and r is
     the aspect ratio
  */
-public func convert_bbox_to_z(bbox_int:Array<Int>)->Array<Double>{
+public func convert_bbox_to_z(bbox_int:Array<Double>)->Array<Double>{
   let bbox = bbox_int.map({ Double($0) })
   let w = bbox[2] - bbox[0]
   let h = bbox[3] - bbox[1]
@@ -44,10 +44,10 @@ public func convert_bbox_to_z(bbox_int:Array<Int>)->Array<Double>{
  Takes a bounding box in the centre form [x,y,s,r] and returns it in the form
      [x1,y1,x2,y2] where x1,y1 is the top left and x2,y2 is the bottom right
  */
-public func convert_x_to_bbox(x:Array<Double>)->Array<Int>{
+public func convert_x_to_bbox(x:Array<Double>)->Array<Double>{
     let w = sqrt(Double(x[2] * x[3]))
     let h = x[2] / w
-    return [x[0]-w/2,x[1]-h/2,x[0]+w/2,x[1]+h/2].map({ Int($0) })
+    return [x[0]-w/2,x[1]-h/2,x[0]+w/2,x[1]+h/2]
 }
 
 var lastId = 0
@@ -61,7 +61,7 @@ public class KalmanTracker{
     public var hit_streak:Int
     public var age:Int
     public var time_since_update:Int
-    public var history:Array<Array<Int>>
+    public var history:Array<Array<Double>>
     public var x:KMatrix   //state vector
     public var P:KMatrix  //initial state uncertainity
     public let B:KMatrix   //control matrix
@@ -75,7 +75,7 @@ public class KalmanTracker{
     /**
      Initialises a tracker using initial bounding box.
      */
-    public init(bbox: Array<Int>){
+    public init(bbox: Array<Double>){
         self.x = KMatrix(grid: convert_bbox_to_z(bbox_int: bbox)+[0,0,0], rows: 7, columns: 1)
         self.P = KMatrix(grid: [10,0,0,0,0,0,0, 0,10,0,0,0,0,0, 0,0,10,0,0,0,0, 0,0,0,10,0,0,0, 0,0,0,0,10000,0,0, 0,0,0,0,0,10000,0, 0,0,0,0,0,0,10000], rows: 7, columns: 7)
         self.B = KMatrix(identityOfSize: 7)
@@ -100,7 +100,7 @@ public class KalmanTracker{
     /**
      Updates the state vector with observed bbox.
      */
-    public func update(bbox: Array<Int>){
+    public func update(bbox: Array<Double>){
         self.time_since_update = 0
         self.history = []
         self.hits += 1
@@ -112,7 +112,7 @@ public class KalmanTracker{
     /**
      Advances the state vector and returns the predicted bounding box estimate.
      */
-    public func predict()->Array<Int>{
+    public func predict()->Array<Double>{
         self.kalmanFilter = self.kalmanFilter.predict(stateTransitionModel: self.F, controlInputModel: self.B, controlVector: self.u, covarianceOfProcessNoise: self.Q)
         self.age+=1
         if self.time_since_update > 0{ self.hit_streak+=1 }
@@ -121,7 +121,7 @@ public class KalmanTracker{
         return self.history.last!
     }
     
-    public func get_state()->Array<Int>{
+    public func get_state()->Array<Double>{
         return convert_x_to_bbox(x: self.kalmanFilter.stateEstimatePrior.grid)
     }
     
@@ -131,7 +131,7 @@ public class KalmanTracker{
  Assigns detections to tracked object (both represented as bounding boxes)
  Returns 3 lists of matches, unmatched_detections and unmatched_trackers
  */
-public func associate_detections_to_trackers(detections: Array<Array<Int>>,trackers: Array<Array<Int>>,iou_threshold:Double = 0.3) -> ([(Int,Int)],[Int],[Int]){
+public func associate_detections_to_trackers(detections: Array<Array<Double>>,trackers: Array<Array<Double>>,iou_threshold:Double = 0.3) -> ([(Int,Int)],[Int],[Int]){
     if trackers.count == 0{
         return ([],Array(0..<detections.count),[])
     }
@@ -140,17 +140,16 @@ public func associate_detections_to_trackers(detections: Array<Array<Int>>,track
     
     for (d,det) in detections.enumerated(){
         for (t,trk) in trackers.enumerated(){
-            iou_matrix[d][t] = Double(iou(bb_test: det,bb_gt: trk))
+            iou_matrix[d][t] = iou(bb_test: det,bb_gt: trk)
         }
     }
     let h = HunSolver(matrix: iou_matrix, maxim: true)
     guard let matched_indices = h?.solve() else{
-        return ([],[0],[])
+        return ([],Array(0..<detections.count),Array(0..<trackers.count))
     }
     var unmatched_detections:[Int] = []
     var unmatched_trackers:[Int] = []
     
-    print("matched_indices",matched_indices)
     //filter out matched with low IOU
     var matches:[(Int,Int)] = []
     for m in matched_indices.1{
@@ -200,13 +199,13 @@ public class TrackerSS{
        Returns an array, where the last column is the object ID.
        NOTE: The number of objects returned may differ from the number of detections provided.
      */
-    public func update(dets: Array<Array<Int>>)->Array<Array<Int>>{
-        var ret:Array<Array<Int>> = []
+    public func update(dets: Array<Array<Double>>)->Array<Array<Double>>{
+        var ret:Array<Array<Double>> = []
         self.frame_count += 1
         
         let trks = self.trackers.map({$0.predict()})
         let (matched,unmatched_dets,_) = associate_detections_to_trackers(detections: dets, trackers: trks)
-        print("matches",matched)
+//        print("matches",matched)
         
         for m in matched{
             self.trackers[m.1].update(bbox: dets[m.0]) //update bbox
@@ -218,14 +217,14 @@ public class TrackerSS{
         for trk in self.trackers.reversed(){
             let d = trk.get_state()
             if trk.time_since_update < 1 && (trk.hit_streak >= self.min_hits || self.frame_count <= self.min_hits){
-                ret.append(d+[trk.id+1])
+                ret.append(d+[Double(trk.id+1)])
             }
             i-=1
             if trk.time_since_update>self.max_age{
                 self.trackers.remove(at: i)
             }
         }
-        print("trackers", self.trackers.count)
+//        print("trackers", self.trackers.count)
         
         if ret.count > 0{
             return ret
