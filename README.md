@@ -44,7 +44,7 @@ To add package in your Xcode project do:
 
 ## Test outputs
 
-Results of author's Python version and this Swift implementation on provided dataset ("data" folder) on Core-i5 MBP-2019.
+Results of author's Python version and this Swift implementation on provided dataset ([data](data) folder) on Core-i5 MBP-2019.
 
 Python output:<br>
 > Processing ETH-Bahnhof.<br>
