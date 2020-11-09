@@ -38,7 +38,38 @@ To add package in your Xcode project do:
 
 ## To do
 
-- Error handling
-- Add utility functions for Vision structs (CGRect/CGPoint)
-- Add support for Carthage and Cocoapods
-- Benchmark on MOT datasets
+- [x] Benchmark on provided datasets
+- [ ] Add utility functions for Vision structs (CGRect/CGPoint)
+- [ ] Add support for Carthage and Cocoapods
+
+## Test outputs
+
+Results of author's Python version and this Swift implementation on provided dataset ("data" folder) on Core-i5 MBP-2019.
+
+Python output:<br>
+> Processing ETH-Bahnhof.<br>
+> Processing ADL-Rundle-8.<br>
+> Processing ADL-Rundle-6.<br>
+> Processing ETH-Pedcross2.<br>
+> Processing TUD-Stadtmitte.<br>
+> Processing TUD-Campus.<br>
+> Processing KITTI-17.<br>
+> Processing PETS09-S2L1.<br>
+> Processing Venice-2.<br>
+> Processing ETH-Sunnyday.<br>
+> Processing KITTI-13.<br>
+> Total Tracking took: 6.033 seconds for 5500 frames or 911.6 FPS<br>
+
+Swift(Xcode) output:<br>
+> processing ADL-Rundle-6.txt<br>
+> processing TUD-Campus.txt<br>
+> processing ETH-Sunnyday.txt<br>
+> processing KITTI-17.txt<br>
+> processing ETH-Pedcross2.txt<br>
+> processing KITTI-13.txt<br>
+> processing TUD-Stadtmitte.txt<br>
+> processing Venice-2.txt<br>
+> processing PETS09-S2L1.txt<br>
+> processing ETH-Bahnhof.txt<br>
+> processing ADL-Rundle-8.txt<br>
+> Total Tracking took: 8.434 seconds for 5500 frames or 652.14 FPS<br>
