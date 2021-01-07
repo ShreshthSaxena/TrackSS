@@ -115,7 +115,7 @@ public class KalmanTracker{
     public func predict()->Array<Double>{
         self.kalmanFilter = self.kalmanFilter.predict(stateTransitionModel: self.F, controlInputModel: self.B, controlVector: self.u, covarianceOfProcessNoise: self.Q)
         self.age+=1
-        if self.time_since_update > 0{ self.hit_streak+=1 }
+        if self.time_since_update > 0{ self.hit_streak = 0 }
         self.time_since_update+=1
         self.history.append(convert_x_to_bbox(x: self.kalmanFilter.stateEstimatePrior.grid))
         return self.history.last!
